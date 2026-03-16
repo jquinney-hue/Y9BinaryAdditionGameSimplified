@@ -1,0 +1,198 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Binary Skills Assessment</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:'Poppins',sans-serif;background:linear-gradient(135deg,#1e3c72,#2a5298);color:#333;}
+.container{max-width:1100px;margin:auto;padding:30px 20px;}
+h1{color:white;text-align:center;margin-bottom:30px;}
+.card{background:white;padding:25px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.15);margin-bottom:25px;}
+h3{margin-top:0}
+table{border-collapse:collapse;width:100%;margin:15px 0;}
+th,td{border:1px solid #ddd;padding:10px;text-align:center;}
+th{background:#f0f3f7;}
+.row-label{font-weight:600;background:#f7f9fc;width:100px;}
+.carry-row td{background:#fff8dc;}
+.answer-row td{background:#eef6ff;}
+input[type=text]{width:100%;padding:8px;font-size:16px;text-align:center;border-radius:6px;border:1px solid #ccc;}
+button{background:#2a5298;color:white;padding:12px 20px;border:none;border-radius:8px;font-size:15px;cursor:pointer;transition:0.3s;}
+button:hover{background:#1e3c72;}
+.center{text-align:center}
+#reportCanvas{width:100%;padding:30px;background:white;}
+.reportTable{width:100%;border-collapse:collapse;}
+.reportTable th,.reportTable td{border:1px solid #333;padding:12px;text-align:center;}
+.reportTable th{background:#2a5298;color:white;}
+.scoreBox{margin-top:20px;font-size:22px;font-weight:600;}
+.hidden{display:none}
+.practiceTitle{color:white;text-align:center;margin-top:40px;}
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Binary Do Now Assessment</h1>
+<div id="quiz"></div>
+<div class="center">
+<button onclick="submitQuiz()">Submit Quiz</button>
+</div>
+<div id="practiceSection" class="hidden">
+<h2 class="practiceTitle">Practice Mode</h2>
+<div id="practiceArea"></div>
+<div class="center">
+<button onclick="generatePractice()">New Practice Question</button>
+</div>
+</div>
+</div>
+<div id="reportCanvas" class="hidden"></div>
+<script>
+const headers=[128,64,32,16,8,4,2,1];
+let questions=[];
+let wrongTopics=[];
+let finalScore=0;
+
+function randomBinary(){return Math.floor(Math.random()*256);}
+function toBinaryArray(num){return headers.map(v=>(num&v)?1:0);}
+
+function generateQuiz(){
+    const quiz=document.getElementById("quiz");
+    quiz.innerHTML="";
+    questions=[];
+
+    // 1 binary-to-denary
+    let num=randomBinary();
+    questions.push({type:"b2d",value:num});
+    quiz.innerHTML+=binaryToDenaryHTML(0,toBinaryArray(num));
+
+    // 2 denary-to-binary
+    for(let i=1;i<3;i++){
+        num=randomBinary();
+        questions.push({type:"d2b",value:num});
+        quiz.innerHTML+=denaryToBinaryHTML(i,num);
+    }
+
+    // 2 binary addition
+    for(let i=3;i<5;i++){
+        let a=randomBinary(),b=randomBinary();
+        questions.push({type:"add",a:a,b:b});
+        quiz.innerHTML+=binaryAdditionHTML(i,a,b);
+    }
+}
+
+function cardWrap(content){return `<div class="card">${content}</div>`;}
+
+function binaryToDenaryHTML(index,bin){
+    let html=`<h3>Q${index+1}: Binary to Denary</h3>
+    <table>
+    <tr><th></th>${headers.map(h=>`<th>${h}</th>`).join("")}</tr>
+    <tr><td class="row-label">Value</td>${bin.map(b=>`<td>${b}</td>`).join("")}</tr>
+    </table>
+    <input type="text" id="q${index}" placeholder="Enter denary value">`;
+    return cardWrap(html);
+}
+
+function denaryToBinaryHTML(index,num){
+    let html=`<h3>Q${index+1}: Denary to Binary</h3>
+    <p><strong>${num}</strong></p>
+    <table>
+    <tr><th></th>${headers.map(h=>`<th>${h}</th>`).join("")}</tr>
+    <tr><td class="row-label">Binary</td>${headers.map((h,i)=>`<td><input type="text" maxlength="1" id="q${index}_${i}"></td>`).join("")}</tr>
+    </table>`;
+    return cardWrap(html);
+}
+
+function binaryAdditionHTML(index,a,b){
+    let A=toBinaryArray(a),B=toBinaryArray(b);
+    let html=`<h3>Q${index+1}: Binary Addition</h3>
+    <table>
+    <tr><th></th>${headers.map(h=>`<th>${h}</th>`).join("")}</tr>
+    <tr class="carry-row">
+    <td class="row-label">Carry</td>
+    ${headers.map((h,i)=>`<td><input type="text" maxlength="1" id="carry${index}_${i}"></td>`).join("")}
+    </tr>
+    <tr><td class="row-label">Number 1</td>${A.map(b=>`<td>${b}</td>`).join("")}</tr>
+    <tr><td class="row-label">Number 2</td>${B.map(b=>`<td>${b}</td>`).join("")}</tr>
+    <tr class="answer-row">
+    <td class="row-label">Answer</td>
+    ${headers.map((h,i)=>`<td><input type="text" maxlength="1" id="q${index}_${i}"></td>`).join("")}
+    </tr>
+    </table>`;
+    return cardWrap(html);
+}
+
+function submitQuiz(){
+    wrongTopics=[];
+    finalScore=0;
+
+    let reportHTML=`<h2 style="text-align:center;">Binary Assessment Report</h2>
+    <table class="reportTable">
+    <tr><th>Question</th><th>Your Answer</th><th>Correct Answer</th><th>Hint</th></tr>`;
+
+    questions.forEach((q,i)=>{
+        let correct,student,topic;
+        if(q.type==="b2d"){
+            correct=q.value.toString();
+            student=document.getElementById("q"+i).value;
+            topic="b2d";
+        } else if(q.type==="d2b"){
+            correct=toBinaryArray(q.value).join("");
+            student=headers.map((h,index)=>document.getElementById(`q${i}_${index}`).value||0).join("");
+            topic="d2b";
+        } else{
+            correct=(q.a+q.b).toString(2).padStart(8,"0");
+            student=headers.map((h,index)=>document.getElementById(`q${i}_${index}`).value||0).join("");
+            topic="add";
+        }
+        if(student===correct){finalScore++;}
+        else{wrongTopics.push(topic);}
+        reportHTML+=`<tr><td>Q${i+1}</td><td>${student}</td><td>${correct}</td><td>${getHint(topic)}</td></tr>`;
+    });
+
+    reportHTML+=`</table><div class="scoreBox">Final Score: ${finalScore}/5</div>`;
+    document.getElementById("reportCanvas").innerHTML=reportHTML;
+    downloadReport();
+}
+
+function getHint(type){
+    if(type==="b2d") return "Add values where there is a 1.";
+    if(type==="d2b") return "Subtract largest possible column values first.";
+    return "Add from right to left. 1 + 1 = 10 (write 0, carry 1).";
+}
+
+function downloadReport(){
+    const report=document.getElementById("reportCanvas");
+    report.classList.remove("hidden");
+    html2canvas(report,{scale:2}).then(canvas=>{
+        let link=document.createElement("a");
+        link.download="Binary_Report.png";
+        link.href=canvas.toDataURL();
+        link.click();
+        report.classList.add("hidden");
+        document.getElementById("practiceSection").classList.remove("hidden");
+    });
+}
+
+function generatePractice(){
+    const area=document.getElementById("practiceArea");
+    area.innerHTML="";
+    if(wrongTopics.length===0){wrongTopics=["b2d","d2b","add"];}
+    let topic=wrongTopics[Math.floor(Math.random()*wrongTopics.length)];
+    if(topic==="b2d"){
+        let num=randomBinary();
+        area.innerHTML=binaryToDenaryHTML("p",toBinaryArray(num));
+    } else if(topic==="d2b"){
+        let num=randomBinary();
+        area.innerHTML=denaryToBinaryHTML("p",num);
+    } else{
+        let a=randomBinary(),b=randomBinary();
+        area.innerHTML=binaryAdditionHTML("p",a,b);
+    }
+}
+
+generateQuiz();
+</script>
+</body>
+</html>
